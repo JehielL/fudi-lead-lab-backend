@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.routers import auth, dedup, discovery, health, jobs, leads, models, ops, predictions, sources
+from app.api.v1.routers import auth, campaigns, dedup, discovery, health, jobs, leads, models, ops, outreach, predictions, sources
 
 api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health", tags=["health"])
@@ -12,4 +12,6 @@ api_router.include_router(discovery.router, prefix="/discovery", tags=["discover
 api_router.include_router(dedup.router, prefix="/dedup", tags=["dedup"])
 api_router.include_router(models.router, prefix="/models", tags=["models"])
 api_router.include_router(predictions.router, prefix="/predictions", tags=["predictions"])
+api_router.include_router(campaigns.router, tags=["campaigns"])
+api_router.include_router(outreach.router, tags=["outreach"])
 api_router.include_router(ops.router, prefix="/ops", tags=["ops"])

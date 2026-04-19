@@ -50,6 +50,16 @@ class Settings(BaseSettings):
     minio_secure: bool = False
     minio_bucket: str = "fudi-lead-lab"
 
+    smtp_send_enabled: bool = False
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from_email: str = "noreply@fudi.local"
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: float = 10.0
+    outreach_max_attempts: int = 3
+
     dependency_check_timeout_seconds: float = 1.5
 
     @property
@@ -60,4 +70,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-
