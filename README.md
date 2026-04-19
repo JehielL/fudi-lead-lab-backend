@@ -139,3 +139,17 @@ Todos requieren `Authorization: Bearer <token>`.
 - `GET /api/v1/leads/{id}/page-snapshots`
 
 El enrichment analiza la web principal del lead cuando existe, guarda `page_snapshots`, crea `feature_snapshots` con señales estructuradas y recalcula el score base con evidencia trazable.
+
+## Endpoints PR6-BE-DEDUP-AND-CONSOLIDATION
+
+Todos requieren `Authorization: Bearer <token>`.
+
+- `GET /api/v1/dedup/candidates`
+- `GET /api/v1/dedup/clusters`
+- `GET /api/v1/dedup/clusters/{id}`
+- `POST /api/v1/dedup/clusters/{id}/merge`
+- `POST /api/v1/dedup/clusters/{id}/ignore`
+- `POST /api/v1/dedup/clusters/{id}/distinct`
+- `POST /api/v1/dedup/recompute`
+
+La recomputación genera candidatos por similitud de nombre normalizado, web, teléfono, email, dirección y ubicación. El merge manual conserva trazabilidad en `merge_events`.
