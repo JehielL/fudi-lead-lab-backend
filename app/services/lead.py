@@ -193,7 +193,11 @@ class LeadService:
         if to_status in {PipelineStatus.PAUSED, PipelineStatus.DISCARDED}:
             return from_status != PipelineStatus.CONVERTED
         if from_status == PipelineStatus.PAUSED:
-            return to_status in MAIN_FLOW
+            return to_status in {
+                PipelineStatus.REVIEWED,
+                PipelineStatus.QUALIFIED,
+                PipelineStatus.CONTACTED,
+            }
         if from_status in {PipelineStatus.DISCARDED, PipelineStatus.CONVERTED}:
             return False
         if from_status not in MAIN_FLOW or to_status not in MAIN_FLOW:
