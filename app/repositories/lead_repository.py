@@ -10,6 +10,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.core.object_id import object_id_to_str
 from app.schemas.lead import (
+    EnrichmentStatus,
     STATUS_LABELS,
     STATUS_STAGE_INDEX,
     LeadActivityCreate,
@@ -204,6 +205,27 @@ class LeadRepository:
                     "priorityScore": score_breakdown.priorityScore,
                     "fitScore": score_breakdown.fitScore,
                     "confidence": confidence,
+                    "updatedAt": datetime.now(UTC),
+                }
+            },
+        )
+        return await self.get_lead(lead_id)
+
+    async def update_enrichment_state(
+        self,
+        lead_id: ObjectId,
+        *,
+        enrichment_status: EnrichmentStatus,
+        last_enriched_at: datetime | None,
+        last_enrichment_error: str | None,
+    ) -> dict[str, Any] | None:
+        await self.leads.update_one(
+            {"_id": lead_id},
+            {
+                "$set": {
+                    "enrichmentStatus": enrichment_status.value,
+                    "lastEnrichedAt": last_enriched_at,
+                    "lastEnrichmentError": last_enrichment_error,
                     "updatedAt": datetime.now(UTC),
                 }
             },

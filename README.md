@@ -64,6 +64,10 @@ Todos los endpoints de leads requieren `Authorization: Bearer <token>`.
 - `POST /api/v1/leads/{id}/status-transition`
 - `GET /api/v1/leads/{id}/score`
 - `POST /api/v1/leads/{id}/score/recompute`
+- `POST /api/v1/leads/{id}/enrich`
+- `GET /api/v1/leads/{id}/enrichment`
+- `GET /api/v1/leads/{id}/feature-snapshots`
+- `GET /api/v1/leads/{id}/page-snapshots`
 
 Filtros de listado:
 
@@ -124,3 +128,14 @@ Invoke-RestMethod `
   -ContentType "application/json" `
   -Body '{"username":"admin@fudi.local","password":"admin"}'
 ```
+
+## Endpoints PR5-BE-ENRICHMENT-AND-FEATURE-EXTRACTION
+
+Todos requieren `Authorization: Bearer <token>`.
+
+- `POST /api/v1/leads/{id}/enrich`
+- `GET /api/v1/leads/{id}/enrichment`
+- `GET /api/v1/leads/{id}/feature-snapshots`
+- `GET /api/v1/leads/{id}/page-snapshots`
+
+El enrichment analiza la web principal del lead cuando existe, guarda `page_snapshots`, crea `feature_snapshots` con señales estructuradas y recalcula el score base con evidencia trazable.

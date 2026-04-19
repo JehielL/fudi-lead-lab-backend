@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
 from app.schemas.auth import UserResponse
+from app.schemas.enrichment import FeatureSnapshot, LeadEnrichmentSummary, PageSnapshot
 from app.schemas.lead import (
     LeadActivity,
     LeadActivityCreate,
@@ -18,6 +19,7 @@ from app.schemas.lead import (
     PipelineStatus,
     SortDirection,
 )
+from app.services.enrichment import EnrichmentService, get_enrichment_service
 from app.services.lead import LeadService, get_lead_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -144,3 +146,36 @@ async def recompute_lead_score(
     service: Annotated[LeadService, Depends(get_lead_service)],
 ) -> LeadScoreResponse:
     return await service.recompute_score(lead_id)
+
+
+@router.post("/{lead_id}/enrich", response_model=LeadEnrichmentSummary)
+async def enrich_lead(
+    lead_id: str,
+    service: Annotated[EnrichmentService, Depends(get_enrichment_service)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> LeadEnrichmentSummary:
+    return await service.enrich_lead(lead_id, current_user)
+
+
+@router.get("/{lead_id}/enrichment", response_model=LeadEnrichmentSummary)
+async def get_lead_enrichment(
+    lead_id: str,
+    service: Annotated[EnrichmentService, Depends(get_enrichment_service)],
+) -> LeadEnrichmentSummary:
+    return await service.get_summary(lead_id)
+
+
+@router.get("/{lead_id}/feature-snapshots", response_model=list[FeatureSnapshot])
+async def list_lead_feature_snapshots(
+    lead_id: str,
+    service: Annotated[EnrichmentService, Depends(get_enrichment_service)],
+) -> list[FeatureSnapshot]:
+    return await service.list_feature_snapshots(lead_id)
+
+
+@router.get("/{lead_id}/page-snapshots", response_model=list[PageSnapshot])
+async def list_lead_page_snapshots(
+    lead_id: str,
+    service: Annotated[EnrichmentService, Depends(get_enrichment_service)],
+) -> list[PageSnapshot]:
+    return await service.list_page_snapshots(lead_id)

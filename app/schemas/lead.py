@@ -51,6 +51,13 @@ class SortDirection(StrEnum):
     DESC = "desc"
 
 
+class EnrichmentStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class ScoreBreakdown(BaseModel):
     newnessScore: int = Field(default=50, ge=0, le=100)
     digitalGapScore: int = Field(default=50, ge=0, le=100)
@@ -80,6 +87,9 @@ class LeadBase(BaseModel):
     fitScore: int = Field(default=0, ge=0, le=100)
     confidence: int = Field(default=0, ge=0, le=100)
     scoreBreakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
+    enrichmentStatus: EnrichmentStatus = EnrichmentStatus.PENDING
+    lastEnrichedAt: datetime | None = None
+    lastEnrichmentError: str | None = Field(default=None, max_length=500)
     isActive: bool = True
     isDiscarded: bool = False
 
@@ -121,6 +131,9 @@ class LeadUpdate(BaseModel):
     fitScore: int | None = Field(default=None, ge=0, le=100)
     confidence: int | None = Field(default=None, ge=0, le=100)
     scoreBreakdown: ScoreBreakdown | None = None
+    enrichmentStatus: EnrichmentStatus | None = None
+    lastEnrichedAt: datetime | None = None
+    lastEnrichmentError: str | None = Field(default=None, max_length=500)
     isActive: bool | None = None
     isDiscarded: bool | None = None
 
