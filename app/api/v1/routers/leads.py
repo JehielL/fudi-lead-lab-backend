@@ -19,8 +19,10 @@ from app.schemas.lead import (
     PipelineStatus,
     SortDirection,
 )
+from app.schemas.models import BatchPredictionRequest, BatchPredictionResponse, LeadPredictionResponse, PredictionRun
 from app.services.enrichment import EnrichmentService, get_enrichment_service
 from app.services.lead import LeadService, get_lead_service
+from app.services.models import ModelService, get_model_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -69,6 +71,15 @@ async def create_lead(
     service: Annotated[LeadService, Depends(get_lead_service)],
 ) -> LeadDetail:
     return await service.create_lead(payload)
+
+
+@router.post("/predict/batch", response_model=BatchPredictionResponse)
+async def predict_leads_batch(
+    payload: BatchPredictionRequest,
+    service: Annotated[ModelService, Depends(get_model_service)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> BatchPredictionResponse:
+    return await service.predict_batch(payload, current_user)
 
 
 @router.get("/{lead_id}", response_model=LeadDetail)
@@ -138,6 +149,23 @@ async def get_lead_score(
     service: Annotated[LeadService, Depends(get_lead_service)],
 ) -> LeadScoreResponse:
     return await service.get_score(lead_id)
+
+
+@router.post("/{lead_id}/predict", response_model=LeadPredictionResponse)
+async def predict_lead(
+    lead_id: str,
+    service: Annotated[ModelService, Depends(get_model_service)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> LeadPredictionResponse:
+    return await service.predict_lead(lead_id, current_user, trigger_type="manual")
+
+
+@router.get("/{lead_id}/predictions", response_model=list[PredictionRun])
+async def list_lead_predictions(
+    lead_id: str,
+    service: Annotated[ModelService, Depends(get_model_service)],
+) -> list[PredictionRun]:
+    return await service.list_lead_prediction_runs(lead_id)
 
 
 @router.post("/{lead_id}/score/recompute", response_model=LeadScoreResponse)

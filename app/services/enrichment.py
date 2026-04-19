@@ -14,10 +14,12 @@ from app.db.dependencies import get_database
 from app.repositories.crawl_job_repository import CrawlJobRepository
 from app.repositories.enrichment_repository import EnrichmentRepository
 from app.repositories.lead_repository import LeadRepository
+from app.repositories.model_repository import ModelRepository
 from app.schemas.auth import UserResponse
 from app.schemas.enrichment import FeatureSnapshot, LeadEnrichmentSummary, PageSnapshot
 from app.schemas.jobs import CrawlJob
 from app.schemas.lead import EnrichmentStatus, LeadDetail, LeadScoreResponse, PipelineStatus, ScoreBreakdown
+from app.services.models import ModelService
 
 
 class ExtractedHtml:
@@ -106,6 +108,7 @@ class EnrichmentService:
         self.leads = LeadRepository(database)
         self.enrichment = EnrichmentRepository(database)
         self.jobs = CrawlJobRepository(database)
+        self.models = ModelService(ModelRepository(database))
 
     async def enrich_lead(self, lead_id: str, current_user: UserResponse) -> LeadEnrichmentSummary:
         object_id = parse_object_id(lead_id)
@@ -193,6 +196,11 @@ class EnrichmentService:
                 error_count=1 if final_status == EnrichmentStatus.FAILED else 0,
                 error_message=error_message if final_status == EnrichmentStatus.FAILED else None,
             )
+            if final_status == EnrichmentStatus.COMPLETED:
+                try:
+                    await self.models.predict_lead(lead_id, current_user, trigger_type="enrichment")
+                except Exception:
+                    pass
             return await self._summary_from_documents(
                 object_id=object_id,
                 status=final_status,

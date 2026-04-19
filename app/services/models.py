@@ -12,12 +12,18 @@ from app.db.dependencies import get_database
 from app.repositories.model_repository import ModelRepository
 from app.schemas.auth import UserResponse
 from app.schemas.models import (
+    ActiveModelConfig,
+    ActiveModelUpdateRequest,
+    BatchPredictionRequest,
+    BatchPredictionResponse,
+    LeadPredictionResponse,
     ModelAlgorithm,
     ModelMetric,
     ModelRegistryEntry,
     ModelTrainRequest,
     ModelTrainResponse,
     ModelType,
+    PredictionRun,
     TrainingRun,
 )
 
@@ -124,10 +130,152 @@ class ModelService:
     async def activate_model(self, model_id: str) -> ModelRegistryEntry:
         model = await self.get_model(model_id)
         activated = await self.repository.activate_model(parse_object_id(model_id), model.modelType.value)
+        await self.repository.upsert_active_model_config(
+            model_type=model.modelType.value,
+            model_id=parse_object_id(model_id),
+            model_version=model.version,
+            updated_by="system",
+        )
         return ModelRegistryEntry.model_validate(activated)
+
+    async def list_active_models(self) -> list[ActiveModelConfig]:
+        configs = await self.repository.list_active_model_config()
+        result: list[ActiveModelConfig] = []
+        for config in configs:
+            model = await self.repository.get_model(ObjectId(config["modelId"]))
+            config["model"] = model
+            result.append(ActiveModelConfig.model_validate(config))
+        return result
+
+    async def set_active_model(
+        self,
+        payload: ActiveModelUpdateRequest,
+        current_user: UserResponse,
+    ) -> ActiveModelConfig:
+        model = await self.get_model(payload.modelId)
+        if model.modelType != payload.modelType:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Model type does not match requested active slot.",
+            )
+        activated = await self.repository.activate_model(parse_object_id(payload.modelId), payload.modelType.value)
+        config = await self.repository.upsert_active_model_config(
+            model_type=payload.modelType.value,
+            model_id=parse_object_id(payload.modelId),
+            model_version=model.version,
+            updated_by=current_user.username,
+        )
+        config["model"] = activated
+        return ActiveModelConfig.model_validate(config)
 
     async def list_runs(self) -> list[TrainingRun]:
         return [TrainingRun.model_validate(run) for run in await self.repository.list_training_runs()]
+
+    async def predict_lead(
+        self,
+        lead_id: str,
+        current_user: UserResponse,
+        trigger_type: str = "manual",
+    ) -> LeadPredictionResponse:
+        _ = current_user
+        object_id = parse_object_id(lead_id)
+        lead = await self.repository.get_lead(object_id)
+        if lead is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+        feature_snapshot = await self.repository.get_latest_feature_snapshot(object_id)
+        features = feature_snapshot.get("features", {}) if feature_snapshot else {}
+        feature_snapshot_id = feature_snapshot["id"] if feature_snapshot else None
+        vector = self._feature_vector(features, lead)
+        runs: list[dict[str, Any]] = []
+        scores: dict[ModelType, int] = {}
+        confidences: list[int] = []
+        metadata: dict[str, Any] = {"triggerType": trigger_type, "models": {}}
+
+        for model_type in ModelType:
+            model = await self.repository.get_active_model_for_type(model_type.value)
+            if model is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"No active model configured for {model_type.value}.",
+                )
+            prediction, confidence = self._predict_with_model(model, vector)
+            explanations = self._prediction_explanations(model_type, prediction, model, features)
+            runs.append(
+                await self.repository.create_prediction_run(
+                    {
+                        "leadId": object_id,
+                        "modelId": ObjectId(model["id"]),
+                        "modelType": model_type.value,
+                        "modelVersion": model["version"],
+                        "inputFeatureSnapshotId": ObjectId(feature_snapshot_id) if feature_snapshot_id else None,
+                        "prediction": prediction,
+                        "confidence": confidence,
+                        "explanations": explanations,
+                        "createdAt": datetime.now(UTC),
+                        "triggerType": trigger_type,
+                    }
+                )
+            )
+            scores[model_type] = prediction
+            confidences.append(confidence)
+            metadata["models"][model_type.value] = {
+                "modelId": model["id"],
+                "modelVersion": model["version"],
+                "algorithm": model["algorithm"],
+            }
+
+        priority_score = round(
+            scores[ModelType.NEWNESS] * 0.22
+            + scores[ModelType.DIGITAL_GAP] * 0.33
+            + scores[ModelType.FIT] * 0.27
+            + scores[ModelType.CONTACTABILITY] * 0.18
+        )
+        confidence = round(sum(confidences) / len(confidences))
+        score_breakdown = {
+            "newnessScore": scores[ModelType.NEWNESS],
+            "digitalGapScore": scores[ModelType.DIGITAL_GAP],
+            "fitScore": scores[ModelType.FIT],
+            "contactabilityScore": scores[ModelType.CONTACTABILITY],
+            "priorityScore": priority_score,
+            "explanation": [explanation for run in runs for explanation in run["explanations"]],
+        }
+        await self.repository.update_lead_score_from_prediction(
+            object_id,
+            score_breakdown=score_breakdown,
+            confidence=confidence,
+            metadata=metadata,
+            trigger_type=trigger_type,
+        )
+        return LeadPredictionResponse(
+            leadId=lead_id,
+            scoreBreakdown=score_breakdown,
+            priorityScore=priority_score,
+            confidence=confidence,
+            predictionRuns=[PredictionRun.model_validate(run) for run in runs],
+        )
+
+    async def predict_batch(
+        self,
+        payload: BatchPredictionRequest,
+        current_user: UserResponse,
+    ) -> BatchPredictionResponse:
+        if payload.leadIds:
+            lead_ids = payload.leadIds[: payload.limit]
+        else:
+            lead_ids = [str(lead["_id"]) for lead in await self.repository.list_predictable_leads(payload.limit)]
+        results: list[LeadPredictionResponse] = []
+        for lead_id in lead_ids:
+            results.append(await self.predict_lead(lead_id, current_user, trigger_type="batch"))
+        return BatchPredictionResponse(predictedCount=len(results), results=results)
+
+    async def list_prediction_runs(self) -> list[PredictionRun]:
+        return [PredictionRun.model_validate(run) for run in await self.repository.list_prediction_runs()]
+
+    async def list_lead_prediction_runs(self, lead_id: str) -> list[PredictionRun]:
+        return [
+            PredictionRun.model_validate(run)
+            for run in await self.repository.list_lead_prediction_runs(parse_object_id(lead_id))
+        ]
 
     async def _build_dataset(self) -> list[dict[str, Any]]:
         snapshots = await self.repository.latest_feature_snapshots()
@@ -250,6 +398,42 @@ class ModelService:
             "f1": round(float(f1_score(y_test, predictions, zero_division=0)), 4),
             "mode": "sklearn_train_test_split",
         }
+
+    def _predict_with_model(self, model_document: dict[str, Any], vector: list[float]) -> tuple[int, int]:
+        artifact = model_document.get("artifact") or {}
+        metrics = model_document.get("metrics") or {}
+        if artifact.get("kind") == "baseline":
+            prediction = 75 if int(artifact.get("prediction") or 0) else 35
+            confidence = round(float(metrics.get("accuracy") or 0.6) * 100)
+            return prediction, max(1, min(confidence, 100))
+        model = pickle.loads(base64.b64decode(artifact["payload"]))
+        if hasattr(model, "predict_proba"):
+            probability = float(model.predict_proba([vector])[0][1])
+            prediction = round(probability * 100)
+            confidence = round((0.5 + abs(probability - 0.5)) * 100)
+            return prediction, max(1, min(confidence, 100))
+        predicted_class = int(model.predict([vector])[0])
+        return (75 if predicted_class else 35), 65
+
+    def _prediction_explanations(
+        self,
+        model_type: ModelType,
+        prediction: int,
+        model_document: dict[str, Any],
+        features: dict[str, Any],
+    ) -> list[str]:
+        explanations = [
+            f"{model_type.value} scored {prediction} by {model_document['version']}.",
+        ]
+        if features.get("brokenWebsiteHint"):
+            explanations.append("Broken website signal influenced model scoring.")
+        if features.get("lowContentWebsite"):
+            explanations.append("Low content signal influenced model scoring.")
+        if features.get("hasBookingLink"):
+            explanations.append("Booking flow signal is present.")
+        if features.get("hasEmail") or features.get("hasPhone"):
+            explanations.append("Direct contact signal is present.")
+        return explanations[:4]
 
     def _feature_vector(self, features: dict[str, Any], lead: dict[str, Any]) -> list[float]:
         values: dict[str, Any] = {

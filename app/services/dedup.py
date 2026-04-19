@@ -13,6 +13,7 @@ from app.core.object_id import parse_object_id
 from app.db.dependencies import get_database
 from app.repositories.dedup_repository import DedupRepository
 from app.repositories.lead_repository import serialize_document
+from app.repositories.model_repository import ModelRepository
 from app.schemas.auth import UserResponse
 from app.schemas.dedup import (
     DedupActionRequest,
@@ -25,11 +26,13 @@ from app.schemas.dedup import (
     MergeEvent,
 )
 from app.schemas.lead import LeadSummary
+from app.services.models import ModelService
 
 
 class DedupService:
     def __init__(self, repository: DedupRepository):
         self.repository = repository
+        self.models = ModelService(ModelRepository(repository.database))
 
     async def list_candidates(self) -> list[DedupCandidate]:
         documents = await self.repository.list_candidate_documents()
@@ -75,6 +78,10 @@ class DedupService:
             performed_by=current_user.username,
             reason=payload.reason,
         )
+        try:
+            await self.models.predict_lead(str(primary_lead_id), current_user, trigger_type="dedup_merge")
+        except Exception:
+            pass
         updated_cluster = await self._get_cluster_document(cluster_id)
         return DedupMergeResponse(
             cluster=await self._cluster_with_leads(updated_cluster),

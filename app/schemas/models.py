@@ -80,3 +80,50 @@ class ModelTrainRequest(BaseModel):
 class ModelTrainResponse(BaseModel):
     run: TrainingRun
     models: list[ModelRegistryEntry]
+
+
+class ActiveModelConfig(BaseModel):
+    id: str
+    modelType: ModelType
+    modelId: str
+    modelVersion: str
+    updatedAt: datetime
+    updatedBy: str
+    model: ModelRegistryEntry | None = None
+
+
+class ActiveModelUpdateRequest(BaseModel):
+    modelType: ModelType
+    modelId: str
+
+
+class PredictionRun(BaseModel):
+    id: str
+    leadId: str
+    modelId: str
+    modelType: ModelType
+    modelVersion: str
+    inputFeatureSnapshotId: str | None = None
+    prediction: int = Field(ge=0, le=100)
+    confidence: int = Field(ge=0, le=100)
+    explanations: list[str] = Field(default_factory=list)
+    createdAt: datetime
+    triggerType: str
+
+
+class LeadPredictionResponse(BaseModel):
+    leadId: str
+    scoreBreakdown: dict[str, Any]
+    priorityScore: int
+    confidence: int
+    predictionRuns: list[PredictionRun]
+
+
+class BatchPredictionRequest(BaseModel):
+    leadIds: list[str] = Field(default_factory=list)
+    limit: int = Field(default=50, ge=1, le=250)
+
+
+class BatchPredictionResponse(BaseModel):
+    predictedCount: int
+    results: list[LeadPredictionResponse]

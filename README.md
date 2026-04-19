@@ -165,3 +165,16 @@ Todos requieren `Authorization: Bearer <token>`.
 - `GET /api/v1/models/runs`
 
 El training usa `feature_snapshots` y leads activos para entrenar modelos iniciales de `newness`, `digital_gap`, `fit` y `contactability` con scikit-learn. Si el dataset local todavía es pequeño o no tiene variación suficiente, registra un baseline trazable para no bloquear el flujo operativo.
+
+## Endpoints PR8-BE-ML-INFERENCE-AND-LIVE-SCORING
+
+Todos requieren `Authorization: Bearer <token>`.
+
+- `POST /api/v1/leads/{id}/predict`
+- `POST /api/v1/leads/predict/batch`
+- `GET /api/v1/leads/{id}/predictions`
+- `GET /api/v1/models/active`
+- `POST /api/v1/models/active`
+- `GET /api/v1/predictions/runs`
+
+La inferencia usa el modelo activo por tipo, registra `prediction_runs`, actualiza `scoreBreakdown` y deja metadata de modelo en el lead. Enrichment y merge de duplicados intentan disparar inferencia automática cuando hay modelos activos disponibles.

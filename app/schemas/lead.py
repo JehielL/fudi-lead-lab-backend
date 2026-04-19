@@ -97,6 +97,10 @@ class LeadBase(BaseModel):
     fitScore: int = Field(default=0, ge=0, le=100)
     confidence: int = Field(default=0, ge=0, le=100)
     scoreBreakdown: ScoreBreakdown = Field(default_factory=ScoreBreakdown)
+    scoreModelMetadata: dict[str, Any] = Field(default_factory=dict)
+    modelScored: bool = False
+    lastPredictedAt: datetime | None = None
+    lastPredictionTrigger: str | None = Field(default=None, max_length=80)
     enrichmentStatus: EnrichmentStatus = EnrichmentStatus.PENDING
     lastEnrichedAt: datetime | None = None
     lastEnrichmentError: str | None = Field(default=None, max_length=500)
@@ -138,6 +142,10 @@ class LeadUpdate(BaseModel):
     fitScore: int | None = Field(default=None, ge=0, le=100)
     confidence: int | None = Field(default=None, ge=0, le=100)
     scoreBreakdown: ScoreBreakdown | None = None
+    scoreModelMetadata: dict[str, Any] | None = None
+    modelScored: bool | None = None
+    lastPredictedAt: datetime | None = None
+    lastPredictionTrigger: str | None = Field(default=None, max_length=80)
     enrichmentStatus: EnrichmentStatus | None = None
     lastEnrichedAt: datetime | None = None
     lastEnrichmentError: str | None = Field(default=None, max_length=500)

@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends
 
 from app.core.security import get_current_user
 from app.schemas.auth import UserResponse
-from app.schemas.models import ModelRegistryEntry, ModelTrainRequest, ModelTrainResponse, TrainingRun
+from app.schemas.models import (
+    ActiveModelConfig,
+    ActiveModelUpdateRequest,
+    ModelRegistryEntry,
+    ModelTrainRequest,
+    ModelTrainResponse,
+    TrainingRun,
+)
 from app.services.models import ModelService, get_model_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -24,6 +31,22 @@ async def list_training_runs(
     service: Annotated[ModelService, Depends(get_model_service)],
 ) -> list[TrainingRun]:
     return await service.list_runs()
+
+
+@router.get("/active", response_model=list[ActiveModelConfig])
+async def list_active_models(
+    service: Annotated[ModelService, Depends(get_model_service)],
+) -> list[ActiveModelConfig]:
+    return await service.list_active_models()
+
+
+@router.post("/active", response_model=ActiveModelConfig)
+async def set_active_model(
+    payload: ActiveModelUpdateRequest,
+    service: Annotated[ModelService, Depends(get_model_service)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> ActiveModelConfig:
+    return await service.set_active_model(payload, current_user)
 
 
 @router.get("", response_model=list[ModelRegistryEntry])
