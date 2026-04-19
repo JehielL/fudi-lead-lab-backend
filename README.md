@@ -60,6 +60,10 @@ Todos los endpoints de leads requieren `Authorization: Bearer <token>`.
 - `GET /api/v1/leads/{id}/sources`
 - `GET /api/v1/leads/{id}/activity`
 - `POST /api/v1/leads/{id}/activity`
+- `GET /api/v1/leads/{id}/status-history`
+- `POST /api/v1/leads/{id}/status-transition`
+- `GET /api/v1/leads/{id}/score`
+- `POST /api/v1/leads/{id}/score/recompute`
 
 Filtros de listado:
 

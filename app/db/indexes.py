@@ -20,6 +20,7 @@ async def ensure_indexes(database: AsyncIOMotorDatabase) -> None:
         await database.lead_sources.create_index([("leadId", ASCENDING)])
         await database.lead_sources.create_index([("sourceType", ASCENDING), ("externalId", ASCENDING)])
         await database.lead_activities.create_index([("leadId", ASCENDING), ("createdAt", DESCENDING)])
+        await database.lead_status_history.create_index([("leadId", ASCENDING), ("createdAt", DESCENDING)])
         await database.crawl_jobs.create_index([("startedAt", DESCENDING)])
         await database.crawl_jobs.create_index([("status", ASCENDING), ("startedAt", DESCENDING)])
         await database.source_registry.create_index([("sourceKey", ASCENDING)], unique=True)

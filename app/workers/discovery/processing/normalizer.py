@@ -21,7 +21,7 @@ class DiscoveryNormalizer:
             "city": raw_payload.get("city"),
             "district": raw_payload.get("district"),
             "countryCode": raw_payload.get("countryCode") or "ES",
-            "pipelineStatus": raw_payload.get("pipelineStatus") or "new",
+            "pipelineStatus": raw_payload.get("pipelineStatus") or "DETECTED",
             "priorityScore": raw_payload.get("priorityScore", 50),
             "fitScore": raw_payload.get("fitScore", 50),
             "confidence": raw_payload.get("confidence", 50),

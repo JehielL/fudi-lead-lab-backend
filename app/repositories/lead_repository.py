@@ -9,7 +9,17 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
 
 from app.core.object_id import object_id_to_str
-from app.schemas.lead import LeadActivityCreate, LeadCreate, LeadUpdate, SortDirection
+from app.schemas.lead import (
+    STATUS_LABELS,
+    STATUS_STAGE_INDEX,
+    LeadActivityCreate,
+    LeadCreate,
+    LeadStatusTransitionRequest,
+    LeadUpdate,
+    PipelineStatus,
+    ScoreBreakdown,
+    SortDirection,
+)
 
 LEAD_SORT_FIELDS = {
     "name",
@@ -37,12 +47,41 @@ def serialize_document(document: dict[str, Any]) -> dict[str, Any]:
     return serialized
 
 
+def enrich_status_fields(document: dict[str, Any]) -> dict[str, Any]:
+    status = PipelineStatus(document.get("pipelineStatus", PipelineStatus.DETECTED))
+    document["pipelineStatus"] = status.value
+    document["statusStageIndex"] = STATUS_STAGE_INDEX[status]
+    document["statusLabel"] = STATUS_LABELS[status]
+    document["isDiscarded"] = status == PipelineStatus.DISCARDED or document.get("isDiscarded", False)
+    if "statusUpdatedAt" not in document or document["statusUpdatedAt"] is None:
+        document["statusUpdatedAt"] = datetime.now(UTC)
+    return document
+
+
+def default_score_breakdown(document: dict[str, Any]) -> dict[str, Any]:
+    if document.get("scoreBreakdown"):
+        return document
+    priority_score = int(document.get("priorityScore") or 50)
+    fit_score = int(document.get("fitScore") or 50)
+    confidence = int(document.get("confidence") or 50)
+    document["scoreBreakdown"] = ScoreBreakdown(
+        newnessScore=50,
+        digitalGapScore=50,
+        fitScore=fit_score,
+        contactabilityScore=confidence,
+        priorityScore=priority_score,
+        explanation=["Baseline score carried from lead fields."],
+    ).model_dump()
+    return document
+
+
 class LeadRepository:
     def __init__(self, database: AsyncIOMotorDatabase):
         self.database = database
         self.leads = database.leads
         self.sources = database.lead_sources
         self.activities = database.lead_activities
+        self.status_history = database.lead_status_history
 
     async def list_leads(
         self,
@@ -94,6 +133,8 @@ class LeadRepository:
         document = payload.model_dump()
         document["schemaVersion"] = 1
         document["normalizedName"] = document["normalizedName"] or normalize_lead_name(document["name"])
+        document = enrich_status_fields(document)
+        document = default_score_breakdown(document)
         document["createdAt"] = now
         document["updatedAt"] = now
         result = await self.leads.insert_one(document)
@@ -114,8 +155,59 @@ class LeadRepository:
             return await self.get_lead(lead_id)
         if update_data.get("name") and not update_data.get("normalizedName"):
             update_data["normalizedName"] = normalize_lead_name(update_data["name"])
+        if update_data.get("pipelineStatus"):
+            update_data = enrich_status_fields(update_data)
         update_data["updatedAt"] = datetime.now(UTC)
         await self.leads.update_one({"_id": lead_id}, {"$set": update_data})
+        return await self.get_lead(lead_id)
+
+    async def transition_status(
+        self,
+        lead_id: ObjectId,
+        *,
+        from_status: PipelineStatus | None,
+        to_status: PipelineStatus,
+        reason: str | None,
+        changed_by: str,
+    ) -> dict[str, Any] | None:
+        now = datetime.now(UTC)
+        status_data = enrich_status_fields({"pipelineStatus": to_status, "statusUpdatedAt": now})
+        status_data["updatedAt"] = now
+        await self.leads.update_one({"_id": lead_id}, {"$set": status_data})
+        history_document = {
+            "leadId": lead_id,
+            "fromStatus": from_status.value if from_status else None,
+            "toStatus": to_status.value,
+            "reason": reason,
+            "changedBy": changed_by,
+            "createdAt": now,
+        }
+        await self.status_history.insert_one(history_document)
+        return await self.get_lead(lead_id)
+
+    async def list_status_history(self, lead_id: ObjectId) -> list[dict[str, Any]]:
+        cursor = self.status_history.find({"leadId": lead_id}).sort("createdAt", DESCENDING)
+        return [serialize_document(document) async for document in cursor]
+
+    async def update_score(
+        self,
+        lead_id: ObjectId,
+        *,
+        score_breakdown: ScoreBreakdown,
+        confidence: int,
+    ) -> dict[str, Any] | None:
+        await self.leads.update_one(
+            {"_id": lead_id},
+            {
+                "$set": {
+                    "scoreBreakdown": score_breakdown.model_dump(),
+                    "priorityScore": score_breakdown.priorityScore,
+                    "fitScore": score_breakdown.fitScore,
+                    "confidence": confidence,
+                    "updatedAt": datetime.now(UTC),
+                }
+            },
+        )
         return await self.get_lead(lead_id)
 
     async def list_sources(self, lead_id: ObjectId) -> list[dict[str, Any]]:

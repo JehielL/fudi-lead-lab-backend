@@ -9,7 +9,10 @@ from app.schemas.lead import (
     LeadActivityCreate,
     LeadCreate,
     LeadDetail,
+    LeadScoreResponse,
     LeadSource,
+    LeadStatusHistory,
+    LeadStatusTransitionRequest,
     LeadUpdate,
     PaginatedLeadListResponse,
     PipelineStatus,
@@ -107,3 +110,37 @@ async def create_lead_activity(
     current_user: Annotated[UserResponse, Depends(get_current_user)],
 ) -> LeadActivity:
     return await service.create_activity(lead_id, payload, current_user)
+
+
+@router.get("/{lead_id}/status-history", response_model=list[LeadStatusHistory])
+async def list_lead_status_history(
+    lead_id: str,
+    service: Annotated[LeadService, Depends(get_lead_service)],
+) -> list[LeadStatusHistory]:
+    return await service.list_status_history(lead_id)
+
+
+@router.post("/{lead_id}/status-transition", response_model=LeadDetail)
+async def transition_lead_status(
+    lead_id: str,
+    payload: LeadStatusTransitionRequest,
+    service: Annotated[LeadService, Depends(get_lead_service)],
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> LeadDetail:
+    return await service.transition_status(lead_id, payload, current_user)
+
+
+@router.get("/{lead_id}/score", response_model=LeadScoreResponse)
+async def get_lead_score(
+    lead_id: str,
+    service: Annotated[LeadService, Depends(get_lead_service)],
+) -> LeadScoreResponse:
+    return await service.get_score(lead_id)
+
+
+@router.post("/{lead_id}/score/recompute", response_model=LeadScoreResponse)
+async def recompute_lead_score(
+    lead_id: str,
+    service: Annotated[LeadService, Depends(get_lead_service)],
+) -> LeadScoreResponse:
+    return await service.recompute_score(lead_id)
