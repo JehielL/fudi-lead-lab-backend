@@ -153,3 +153,15 @@ Todos requieren `Authorization: Bearer <token>`.
 - `POST /api/v1/dedup/recompute`
 
 La recomputación genera candidatos por similitud de nombre normalizado, web, teléfono, email, dirección y ubicación. El merge manual conserva trazabilidad en `merge_events`.
+
+## Endpoints PR7-BE-ML-TRAINING-FOUNDATION
+
+Todos requieren `Authorization: Bearer <token>`.
+
+- `POST /api/v1/models/train`
+- `GET /api/v1/models`
+- `GET /api/v1/models/{id}`
+- `POST /api/v1/models/{id}/activate`
+- `GET /api/v1/models/runs`
+
+El training usa `feature_snapshots` y leads activos para entrenar modelos iniciales de `newness`, `digital_gap`, `fit` y `contactability` con scikit-learn. Si el dataset local todavía es pequeño o no tiene variación suficiente, registra un baseline trazable para no bloquear el flujo operativo.

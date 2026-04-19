@@ -40,5 +40,11 @@ async def ensure_indexes(database: AsyncIOMotorDatabase) -> None:
         await database.dedup_clusters.create_index([("leadIds", ASCENDING)])
         await database.merge_events.create_index([("clusterId", ASCENDING)])
         await database.merge_events.create_index([("createdAt", DESCENDING)])
+        await database.model_registry.create_index([("modelType", ASCENDING), ("isActive", ASCENDING)])
+        await database.model_registry.create_index([("trainedAt", DESCENDING)])
+        await database.training_runs.create_index([("startedAt", DESCENDING)])
+        await database.training_runs.create_index([("status", ASCENDING), ("startedAt", DESCENDING)])
+        await database.model_metrics.create_index([("modelId", ASCENDING)])
+        await database.model_metrics.create_index([("trainingRunId", ASCENDING)])
     except Exception:
         logger.exception("mongo_index_creation_failed")
