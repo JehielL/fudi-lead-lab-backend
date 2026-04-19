@@ -20,6 +20,7 @@ from app.schemas.lead import (
     PipelineStatus,
     ScoreBreakdown,
     SortDirection,
+    coerce_pipeline_status,
 )
 
 LEAD_SORT_FIELDS = {
@@ -49,7 +50,7 @@ def serialize_document(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def enrich_status_fields(document: dict[str, Any]) -> dict[str, Any]:
-    status = PipelineStatus(document.get("pipelineStatus", PipelineStatus.DETECTED))
+    status = coerce_pipeline_status(document.get("pipelineStatus", PipelineStatus.DETECTED))
     document["pipelineStatus"] = status.value
     document["statusStageIndex"] = STATUS_STAGE_INDEX[status]
     document["statusLabel"] = STATUS_LABELS[status]

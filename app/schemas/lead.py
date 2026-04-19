@@ -46,6 +46,16 @@ LEGACY_STATUS_MAP = {
 }
 
 
+def coerce_pipeline_status(value: str | PipelineStatus) -> PipelineStatus:
+    if isinstance(value, PipelineStatus):
+        return value
+    normalized = str(value).strip()
+    legacy_status = LEGACY_STATUS_MAP.get(normalized.lower())
+    if legacy_status:
+        return legacy_status
+    return PipelineStatus(normalized.upper())
+
+
 class SortDirection(StrEnum):
     ASC = "asc"
     DESC = "desc"
@@ -96,10 +106,7 @@ class LeadBase(BaseModel):
     @field_validator("pipelineStatus", mode="before")
     @classmethod
     def normalize_pipeline_status(cls, value: str | PipelineStatus) -> PipelineStatus:
-        if isinstance(value, PipelineStatus):
-            return value
-        normalized = str(value).strip()
-        return LEGACY_STATUS_MAP.get(normalized.lower(), PipelineStatus(normalized.upper()))
+        return coerce_pipeline_status(value)
 
     @field_validator("countryCode")
     @classmethod
@@ -140,10 +147,7 @@ class LeadUpdate(BaseModel):
     @field_validator("pipelineStatus", mode="before")
     @classmethod
     def normalize_pipeline_status(cls, value: str | PipelineStatus | None) -> PipelineStatus | None:
-        if value is None or isinstance(value, PipelineStatus):
-            return value
-        normalized = str(value).strip()
-        return LEGACY_STATUS_MAP.get(normalized.lower(), PipelineStatus(normalized.upper()))
+        return coerce_pipeline_status(value) if value is not None else None
 
     @field_validator("countryCode")
     @classmethod
@@ -205,10 +209,7 @@ class LeadStatusTransitionRequest(BaseModel):
     @field_validator("toStatus", mode="before")
     @classmethod
     def normalize_to_status(cls, value: str | PipelineStatus) -> PipelineStatus:
-        if isinstance(value, PipelineStatus):
-            return value
-        normalized = str(value).strip()
-        return LEGACY_STATUS_MAP.get(normalized.lower(), PipelineStatus(normalized.upper()))
+        return coerce_pipeline_status(value)
 
 
 class LeadStatusHistory(BaseModel):
