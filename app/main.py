@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.db.indexes import ensure_indexes
 from app.db.minio import close_minio_client, get_minio_client
 from app.db.mongo import close_mongo_client, get_mongo_client
 from app.db.redis import close_redis_client, get_redis_client
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
     app.state.mongo_client = get_mongo_client(settings)
     app.state.redis_client = get_redis_client(settings)
     app.state.minio_client = get_minio_client(settings)
+    await ensure_indexes(app.state.mongo_client[settings.mongodb_database])
     yield
     await close_redis_client(app.state.redis_client)
     close_mongo_client(app.state.mongo_client)

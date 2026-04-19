@@ -49,6 +49,31 @@ MINIO_BUCKET=fudi-lead-lab
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
 
+## Endpoints PR2-BE-LEAD-DOMAIN
+
+Todos los endpoints de leads requieren `Authorization: Bearer <token>`.
+
+- `GET /api/v1/leads`
+- `POST /api/v1/leads`
+- `GET /api/v1/leads/{id}`
+- `PATCH /api/v1/leads/{id}`
+- `GET /api/v1/leads/{id}/sources`
+- `GET /api/v1/leads/{id}/activity`
+- `POST /api/v1/leads/{id}/activity`
+
+Filtros de listado:
+
+- `q`
+- `pipelineStatus`
+- `city`
+- `district`
+- `minPriorityScore`
+- `maxPriorityScore`
+- `page`
+- `pageSize`
+- `sortBy`
+- `sortDirection`
+
 Ejemplo de login:
 
 ```powershell
