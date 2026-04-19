@@ -104,6 +104,10 @@ class LeadRepository:
         document = await self.leads.find_one({"_id": lead_id})
         return serialize_document(document) if document else None
 
+    async def get_by_normalized_name(self, normalized_name: str) -> dict[str, Any] | None:
+        document = await self.leads.find_one({"normalizedName": normalized_name})
+        return serialize_document(document) if document else None
+
     async def update_lead(self, lead_id: ObjectId, payload: LeadUpdate) -> dict[str, Any] | None:
         update_data = payload.model_dump(exclude_unset=True)
         if not update_data:
@@ -117,6 +121,28 @@ class LeadRepository:
     async def list_sources(self, lead_id: ObjectId) -> list[dict[str, Any]]:
         cursor = self.sources.find({"leadId": lead_id}).sort("capturedAt", DESCENDING)
         return [serialize_document(document) async for document in cursor]
+
+    async def create_source(
+        self,
+        *,
+        lead_id: ObjectId,
+        source_type: str,
+        external_id: str | None,
+        source_url: str | None,
+        raw_metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        document = {
+            "leadId": lead_id,
+            "sourceType": source_type,
+            "externalId": external_id,
+            "sourceUrl": source_url,
+            "capturedAt": now,
+            "rawMetadata": raw_metadata,
+        }
+        result = await self.sources.insert_one(document)
+        created = await self.sources.find_one({"_id": result.inserted_id})
+        return serialize_document(created)
 
     async def list_activity(self, lead_id: ObjectId) -> list[dict[str, Any]]:
         cursor = self.activities.find({"leadId": lead_id}).sort("createdAt", DESCENDING)

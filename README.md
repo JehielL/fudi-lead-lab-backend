@@ -74,6 +74,43 @@ Filtros de listado:
 - `sortBy`
 - `sortDirection`
 
+## Endpoints PR3-BE-DISCOVERY-ENGINE
+
+Todos requieren `Authorization: Bearer <token>`.
+
+- `GET /api/v1/jobs`
+- `GET /api/v1/jobs/{id}`
+- `POST /api/v1/jobs/discovery/run`
+- `POST /api/v1/jobs/{id}/retry`
+- `GET /api/v1/sources`
+- `POST /api/v1/sources`
+- `PATCH /api/v1/sources/{id}`
+- `GET /api/v1/discovery/raw-items`
+- `GET /api/v1/discovery/raw-items/{id}`
+- `GET /api/v1/ops/summary`
+
+Ejemplo de source local:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/sources `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body '{"sourceKey":"madrid-seed","sourceType":"local_seed","name":"Madrid Seed","config":{"seedItems":[{"name":"Casa Demo","city":"Madrid","district":"Centro","priorityScore":70}]}}'
+```
+
+Ejemplo de ejecución manual:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/jobs/discovery/run `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body '{"sourceKey":"madrid-seed"}'
+```
+
 Ejemplo de login:
 
 ```powershell
